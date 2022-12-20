@@ -1378,9 +1378,10 @@ class InAppWebViewController {
           // convert result to json
           try {
             return jsonEncode(await javaScriptHandlersMap[handlerName]!(args));
-          } catch (error) {
-            developer.log(error.toString(), name: this.runtimeType.toString());
-            return null;
+          } catch (error, stacktrace) {
+            developer.log(error.toString() + '\n' + stacktrace.toString(),
+                name: 'JavaScript Handler "$handlerName"');
+            throw Exception(error.toString().replaceFirst('Exception: ', ''));
           }
         }
         break;
@@ -1976,8 +1977,7 @@ class InAppWebViewController {
     args.putIfAbsent('source', () => source);
     args.putIfAbsent('contentWorld', () => contentWorld?.toMap());
     var data = await _channel.invokeMethod('evaluateJavascript', args);
-    if (data != null &&
-        (defaultTargetPlatform == TargetPlatform.android || kIsWeb)) {
+    if (data != null && (Util.isAndroid || Util.isWeb)) {
       try {
         // try to json decode the data coming from JavaScript
         // otherwise return it as it is.
@@ -2497,10 +2497,8 @@ class InAppWebViewController {
       {required double zoomFactor,
       @Deprecated('Use animated instead') bool? iosAnimated,
       bool animated = false}) async {
-    assert(defaultTargetPlatform != TargetPlatform.android ||
-        (defaultTargetPlatform == TargetPlatform.android &&
-            zoomFactor > 0.01 &&
-            zoomFactor <= 100.0));
+    assert(!Util.isAndroid ||
+        (Util.isAndroid && zoomFactor > 0.01 && zoomFactor <= 100.0));
 
     Map<String, dynamic> args = <String, dynamic>{};
     args.putIfAbsent('zoomFactor', () => zoomFactor);
@@ -2819,8 +2817,7 @@ class InAppWebViewController {
   ///- iOS ([Official API - WKUserContentController.addUserScript](https://developer.apple.com/documentation/webkit/wkusercontentcontroller/1537448-adduserscript))
   ///- MacOS ([Official API - WKUserContentController.addUserScript](https://developer.apple.com/documentation/webkit/wkusercontentcontroller/1537448-adduserscript))
   Future<void> addUserScript({required UserScript userScript}) async {
-    assert(_webview?.windowId == null ||
-        defaultTargetPlatform != TargetPlatform.iOS);
+    assert(_webview?.windowId == null || (!Util.isIOS && !Util.isMacOS));
 
     Map<String, dynamic> args = <String, dynamic>{};
     args.putIfAbsent('userScript', () => userScript.toMap());
@@ -2842,8 +2839,7 @@ class InAppWebViewController {
   ///- iOS
   ///- MacOS
   Future<void> addUserScripts({required List<UserScript> userScripts}) async {
-    assert(_webview?.windowId == null ||
-        defaultTargetPlatform != TargetPlatform.iOS);
+    assert(_webview?.windowId == null || (!Util.isIOS && !Util.isMacOS));
 
     for (var i = 0; i < userScripts.length; i++) {
       await addUserScript(userScript: userScripts[i]);
@@ -2863,8 +2859,7 @@ class InAppWebViewController {
   ///- iOS
   ///- MacOS
   Future<bool> removeUserScript({required UserScript userScript}) async {
-    assert(_webview?.windowId == null ||
-        defaultTargetPlatform != TargetPlatform.iOS);
+    assert(_webview?.windowId == null || (!Util.isIOS && !Util.isMacOS));
 
     var index = _userScripts[userScript.injectionTime]?.indexOf(userScript);
     if (index == null || index == -1) {
@@ -2892,8 +2887,7 @@ class InAppWebViewController {
   ///- iOS
   ///- MacOS
   Future<void> removeUserScriptsByGroupName({required String groupName}) async {
-    assert(_webview?.windowId == null ||
-        defaultTargetPlatform != TargetPlatform.iOS);
+    assert(_webview?.windowId == null || (!Util.isIOS && !Util.isMacOS));
 
     final List<UserScript> userScriptsAtDocumentStart = List.from(
         _userScripts[UserScriptInjectionTime.AT_DOCUMENT_START] ?? []);
@@ -2929,8 +2923,7 @@ class InAppWebViewController {
   ///- MacOS
   Future<void> removeUserScripts(
       {required List<UserScript> userScripts}) async {
-    assert(_webview?.windowId == null ||
-        defaultTargetPlatform != TargetPlatform.iOS);
+    assert(_webview?.windowId == null || (!Util.isIOS && !Util.isMacOS));
 
     for (final userScript in userScripts) {
       await removeUserScript(userScript: userScript);
@@ -2948,8 +2941,7 @@ class InAppWebViewController {
   ///- iOS ([Official API - WKUserContentController.removeAllUserScripts](https://developer.apple.com/documentation/webkit/wkusercontentcontroller/1536540-removealluserscripts))
   ///- MacOS ([Official API - WKUserContentController.removeAllUserScripts](https://developer.apple.com/documentation/webkit/wkusercontentcontroller/1536540-removealluserscripts))
   Future<void> removeAllUserScripts() async {
-    assert(_webview?.windowId == null ||
-        defaultTargetPlatform != TargetPlatform.iOS);
+    assert(_webview?.windowId == null || (!Util.isIOS && !Util.isMacOS));
 
     _userScripts[UserScriptInjectionTime.AT_DOCUMENT_START]?.clear();
     _userScripts[UserScriptInjectionTime.AT_DOCUMENT_END]?.clear();
@@ -3003,7 +2995,7 @@ class InAppWebViewController {
     if (data == null) {
       return null;
     }
-    if (defaultTargetPlatform == TargetPlatform.android) {
+    if (Util.isAndroid) {
       data = json.decode(data);
     }
     return CallAsyncJavaScriptResult(
@@ -3031,9 +3023,9 @@ class InAppWebViewController {
   Future<String?> saveWebArchive(
       {required String filePath, bool autoname = false}) async {
     if (!autoname) {
-      if (defaultTargetPlatform == TargetPlatform.android) {
+      if (Util.isAndroid) {
         assert(filePath.endsWith("." + WebArchiveFormat.MHT.toNativeValue()));
-      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      } else if (Util.isIOS || Util.isMacOS) {
         assert(filePath
             .endsWith("." + WebArchiveFormat.WEBARCHIVE.toNativeValue()));
       }
