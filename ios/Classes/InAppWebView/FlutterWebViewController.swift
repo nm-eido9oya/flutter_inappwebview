@@ -15,28 +15,35 @@ public class FlutterWebViewController: NSObject, FlutterPlatformView, Disposable
     init(registrar: FlutterPluginRegistrar, withFrame frame: CGRect, viewIdentifier viewId: Any, params: NSDictionary) {
         super.init()
         
-        myView = UIView(frame: frame)
-        myView!.clipsToBounds = true
-        
+        // Get main screen rect size
+        let screenSize: CGRect = UIScreen.main.bounds
+        let bttomInsetOfSafeArea = (UIApplication.shared.windows.filter { $0.isKeyWindow }.first?.safeAreaInsets.bottom ?? 0)
+        let topInsetOfSafeArea = UIApplication.shared.windows.filter { $0.isKeyWindow }.first?.safeAreaInsets.top ?? 0
+        let frameRect: CGRect = CGRect(x: 0, y: 0, width: screenSize.width, height: screenSize.height - bttomInsetOfSafeArea - topInsetOfSafeArea)
+
+        myView = UIView(frame: frameRect)
+        myView?.insetsLayoutMarginsFromSafeArea = true
+//        myView!.clipsToBounds = true
+
         let initialSettings = params["initialSettings"] as! [String: Any?]
         let contextMenu = params["contextMenu"] as? [String: Any]
         let windowId = params["windowId"] as? Int64
         let initialUserScripts = params["initialUserScripts"] as? [[String: Any]]
         let pullToRefreshInitialSettings = params["pullToRefreshSettings"] as! [String: Any?]
-        
+
         var userScripts: [UserScript] = []
         if let initialUserScripts = initialUserScripts {
             for intialUserScript in initialUserScripts {
                 userScripts.append(UserScript.fromMap(map: intialUserScript, windowId: windowId)!)
             }
         }
-        
+
         let settings = InAppWebViewSettings()
         let _ = settings.parse(settings: initialSettings)
         let preWebviewConfiguration = InAppWebView.preWKWebViewConfiguration(settings: settings)
-        
+
         var webView: InAppWebView?
-        
+
         if let wId = windowId, let webViewTransport = InAppWebView.windowWebViews[wId] {
             webView = webViewTransport.webView
             webView!.id = viewId
@@ -54,23 +61,23 @@ public class FlutterWebViewController: NSObject, FlutterPlatformView, Disposable
                                    contextMenu: contextMenu,
                                    userScripts: userScripts)
         }
-        
+
         let pullToRefreshSettings = PullToRefreshSettings()
         let _ = pullToRefreshSettings.parse(settings: pullToRefreshInitialSettings)
         let pullToRefreshControl = PullToRefreshControl(registrar: registrar, id: viewId, settings: pullToRefreshSettings)
         webView!.pullToRefreshControl = pullToRefreshControl
         pullToRefreshControl.delegate = webView!
         pullToRefreshControl.prepare()
-        
+
         let findInteractionController = FindInteractionController(
             registrar: SwiftFlutterPlugin.instance!.registrar!,
             id: viewId, webView: webView!, settings: nil)
         webView!.findInteractionController = findInteractionController
         findInteractionController.prepare()
 
-        webView!.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        myView!.autoresizesSubviews = true
-        myView!.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+//        webView!.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+//        myView!.autoresizesSubviews = true
+//        myView!.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         myView!.addSubview(webView!)
 
         webView!.settings = settings
